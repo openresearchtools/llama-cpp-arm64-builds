@@ -253,4 +253,4 @@ jobs:
             - Debian Trixie ARM64 CUDA 13
 
             Debian artifacts are built in throwaway Debian Trixie ARM64 containers.
-            The CUDA artifact bundles CUDA runtime libraries and NVIDIA license notices.
+            The CUDA artifact is built against CUDA 13.2 and does not bundle NVIDIA runtime or driver libraries.

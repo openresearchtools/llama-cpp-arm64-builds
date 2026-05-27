@@ -45,38 +45,19 @@ RUN cmake -S . -B build -G Ninja \
     cmake --build build --config Release -j"$(nproc)"
 
 RUN test -n "${RELEASE_TAG}" && \
-    pkg="/out/llama-${RELEASE_TAG}" && \
-    mkdir -p "${pkg}" "${pkg}/licenses/debian-package-copyrights" "${pkg}/licenses/upstream" && \
-    find build -name "*.so*" -exec cp -P {} "${pkg}/" \; && \
-    cp -a build/bin/. "${pkg}/" && \
-    find . -maxdepth 1 -type f -name "*.py" -exec cp {} "${pkg}/" \; && \
-    if [ -d gguf-py ]; then cp -a gguf-py "${pkg}/gguf-py"; fi && \
-    if [ -d requirements ]; then cp -a requirements "${pkg}/requirements"; fi && \
-    if [ -f requirements.txt ]; then cp requirements.txt "${pkg}/requirements.txt"; fi && \
-    if [ -f .devops/tools.sh ]; then cp .devops/tools.sh "${pkg}/tools.sh"; fi && \
-    test -x "${pkg}/rpc-server" && \
-    test -x "${pkg}/llama-server" && \
-    test -x "${pkg}/llama-cli" && \
-    cp LICENSE "${pkg}/LICENSE" && \
-    for file in AUTHORS NOTICE; do \
-      if [ -f "${file}" ]; then cp "${file}" "${pkg}/licenses/upstream/${file}"; fi; \
-    done && \
-    if [ -d licenses ]; then cp -a licenses "${pkg}/licenses/upstream/licenses"; fi && \
-    if [ -f vendor/cpp-httplib/LICENSE ]; then \
-      mkdir -p "${pkg}/licenses/upstream/vendor/cpp-httplib"; \
-      cp vendor/cpp-httplib/LICENSE "${pkg}/licenses/upstream/vendor/cpp-httplib/LICENSE"; \
+    mkdir -p /out && \
+    cp LICENSE build/bin/LICENSE && \
+    test -x build/bin/rpc-server && \
+    test -x build/bin/llama-server && \
+    test -x build/bin/llama-cli && \
+    test -e build/bin/libggml-vulkan.so && \
+    broken_symlinks="$(find build/bin -xtype l -print)" && \
+    if [ -n "${broken_symlinks}" ]; then \
+      printf '%s\n' 'Broken symlinks in build/bin:' "${broken_symlinks}"; \
+      exit 1; \
     fi && \
-    if [ -f gguf-py/LICENSE ]; then \
-      mkdir -p "${pkg}/licenses/upstream/gguf-py"; \
-      cp gguf-py/LICENSE "${pkg}/licenses/upstream/gguf-py/LICENSE"; \
-    fi && \
-    find /usr/share/doc -maxdepth 2 -type f -name copyright | while read -r file; do \
-      package="$(basename "$(dirname "${file}")")"; \
-      case "${package}" in \
-        libvulkan*|vulkan*|spirv*|glslang*) cp "${file}" "${pkg}/licenses/debian-package-copyrights/${package}.copyright" ;; \
-      esac; \
-    done && \
-    tar -czf "/out/llama-${RELEASE_TAG}-bin-debian-trixie-vulkan-arm64.tar.gz" -C /out "llama-${RELEASE_TAG}"
+    tar -czf "/out/llama-${RELEASE_TAG}-bin-debian-trixie-vulkan-arm64.tar.gz" \
+      --transform "s,^\.,llama-${RELEASE_TAG}," -C build/bin .
 
 FROM scratch AS artifact
 COPY --from=build /out/ /

@@ -15,13 +15,14 @@ It then builds release tarballs for:
 - Debian Trixie ARM64 CUDA 13
 
 The Debian artifacts are built inside throwaway Debian Trixie ARM64 containers.
-They are normal full release packages: all built tools, `rpc-server`, and CPU
-backend variants are kept in the CUDA and Vulkan tarballs.
-The CUDA build uses NVIDIA's Debian 13 SBSA CUDA 13 packages and bundles CUDA
-runtime libraries such as `libcudart`, `libcublas`, and `libcublasLt` together
-with NVIDIA EULA and package copyright notices.
-It does not bundle the NVIDIA kernel/user driver. `libcuda.so` must come from
-the target machine's installed NVIDIA driver.
+They follow the upstream llama.cpp Linux release shape: `build/bin` is archived
+after adding the upstream `LICENSE`. The tarballs keep all built tools,
+`rpc-server`, and CPU backend variants produced by the build.
+
+The CUDA build uses NVIDIA's Debian 13 SBSA CUDA 13.2 packages at build time, but
+does not bundle NVIDIA CUDA runtime libraries or driver libraries. CUDA runtime
+libraries such as `libcudart`, `libcublas`, `libcublasLt`, and the NVIDIA driver
+library `libcuda.so` must come from the target machine.
 
 Release tarballs follow the upstream llama.cpp layout: a single
 `llama-<tag>/` directory containing the built binaries and shared libraries,
@@ -42,14 +43,13 @@ including `rpc-server`.
 
 There are three separate layers here:
 
-- `ggml-org/llama.cpp`: upstream source and upstream release-package layout.
-  This repo follows its tarball shape and release asset naming style.
+- `ggml-org/llama.cpp`: upstream source and upstream Linux release-package
+  layout. This repo follows its tarball shape and release asset naming style.
 - `TheTom/llama-cpp-turboquant`: TurboQuant source. TurboQuant builds check
   out Tom's repository directly; this repo does not vendor Tom's source.
 - `openresearchtools/llama-cpp-turboquant`: OpenResearchTools build machinery
   layered on top of llama.cpp/Tom-style Dockerfiles, including ARM64 Docker
-  release patterns, `GGML_RPC=ON`, NVIDIA notice/license collection, and the
-  RPC image target.
+  release patterns, `GGML_RPC=ON`, and the RPC image target.
 
 This repository is only the release automation layer for
 `openresearchtools/llama-cpp-arm64-builds`.
