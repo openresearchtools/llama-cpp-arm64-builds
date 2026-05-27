@@ -1,0 +1,59 @@
+name: Track llama.cpp releases
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  resolve:
+    name: Resolve latest upstream release
+    runs-on: ubuntu-24.04
+    outputs:
+      should_build: ${{ steps.resolve.outputs.should_build }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      name: ${{ steps.resolve.outputs.name }}
+
+    steps:
+      - name: Resolve release
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          latest="$(gh api repos/ggml-org/llama.cpp/releases/latest --jq .tag_name)"
+          expected_assets=(
+            "llama-${latest}-bin-macos-arm64.tar.gz"
+            "llama-${latest}-bin-debian-trixie-vulkan-arm64.tar.gz"
+            "llama-${latest}-bin-debian-trixie-cuda13-arm64.tar.gz"
+          )
+
+          should_build=true
+          if assets="$(gh release view "${latest}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name' 2>/dev/null)"; then
+            should_build=false
+            for asset in "${expected_assets[@]}"; do
+              if ! grep -Fxq "${asset}" <<< "${assets}"; then
+                should_build=true
+              fi
+            done
+          fi
+
+          echo "should_build=${should_build}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${latest}" >> "${GITHUB_OUTPUT}"
+          echo "name=llama.cpp ${latest} ARM64 builds" >> "${GITHUB_OUTPUT}"
+
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.should_build == 'true'
+    uses: ./.github/workflows/build-release-artifacts.yml
+    with:
+      source_repo: ggml-org/llama.cpp
+      source_ref: ${{ needs.resolve.outputs.tag }}
+      release_tag: ${{ needs.resolve.outputs.tag }}
+      release_name: ${{ needs.resolve.outputs.name }}
+      prerelease: false
+    permissions:
+      contents: write

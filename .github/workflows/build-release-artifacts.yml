@@ -1,0 +1,254 @@
+name: Build release artifacts
+
+on:
+  workflow_call:
+    inputs:
+      source_repo:
+        required: true
+        type: string
+      source_ref:
+        required: true
+        type: string
+      release_tag:
+        required: true
+        type: string
+      release_name:
+        required: true
+        type: string
+      prerelease:
+        required: false
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      source_repo:
+        description: Source repository to build
+        required: true
+        default: ggml-org/llama.cpp
+      source_ref:
+        description: Source git ref, usually an upstream release tag
+        required: true
+      release_tag:
+        description: Release tag to create in this repository
+        required: true
+      release_name:
+        description: Release title
+        required: true
+      prerelease:
+        description: Mark the release as prerelease
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  CMAKE_ARGS: "-DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_TOOLS=ON -DLLAMA_BUILD_SERVER=ON -DGGML_RPC=ON"
+
+jobs:
+  macos-arm64:
+    name: macOS ARM64 Metal
+    runs-on: macos-26
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.source_repo }}
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 1
+          path: src
+
+      - name: ccache
+        uses: ggml-org/ccache-action@v1.2.21
+        with:
+          key: macos-arm64-${{ inputs.source_repo }}-${{ inputs.source_ref }}
+          evict-old-files: 1d
+
+      - name: Build
+        working-directory: src
+        run: |
+          cmake -B build \
+            -DGGML_METAL_USE_BF16=ON \
+            -DGGML_METAL_EMBED_LIBRARY=ON \
+            -DCMAKE_INSTALL_RPATH='@loader_path' \
+            -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
+            -DGGML_NATIVE=OFF \
+            -DLLAMA_BUILD_BORINGSSL=ON \
+            ${{ env.CMAKE_ARGS }}
+          cmake --build build --config Release -j "$(sysctl -n hw.logicalcpu)"
+
+      - name: Pack
+        working-directory: src
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          cp LICENSE ./build/bin/
+          tar -czvf "../llama-${RELEASE_TAG}-bin-macos-arm64.tar.gz" \
+            -s ",^\.,llama-${RELEASE_TAG}," -C ./build/bin .
+
+      - name: Upload
+        uses: actions/upload-artifact@v6
+        with:
+          name: llama-bin-macos-arm64
+          path: llama-${{ inputs.release_tag }}-bin-macos-arm64.tar.gz
+
+  debian-vulkan-arm64:
+    name: Debian Trixie ARM64 Vulkan
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Check out workflow repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.source_repo }}
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 1
+          path: src
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd
+
+      - name: Build artifact in Debian container
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --target artifact \
+            --build-arg "RELEASE_TAG=${RELEASE_TAG}" \
+            --output "type=local,dest=${GITHUB_WORKSPACE}/artifacts-vulkan" \
+            -f "${GITHUB_WORKSPACE}/.github/docker/debian-vulkan-artifact.Dockerfile" \
+            "${GITHUB_WORKSPACE}/src"
+
+      - name: Upload
+        uses: actions/upload-artifact@v6
+        with:
+          name: llama-bin-debian-trixie-vulkan-arm64
+          path: artifacts-vulkan/llama-${{ inputs.release_tag }}-bin-debian-trixie-vulkan-arm64.tar.gz
+
+      - name: Clean Docker state
+        if: always()
+        run: |
+          docker buildx prune -af || true
+          docker system prune -af --volumes || true
+
+  debian-cuda13-arm64:
+    name: Debian Trixie ARM64 CUDA 13
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Check out workflow repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.source_repo }}
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 1
+          path: src
+
+      - name: Free disk space
+        uses: ggml-org/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd
+
+      - name: Build artifact in Debian container
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --target artifact \
+            --build-arg "RELEASE_TAG=${RELEASE_TAG}" \
+            --output "type=local,dest=${GITHUB_WORKSPACE}/artifacts-cuda" \
+            -f "${GITHUB_WORKSPACE}/.github/docker/debian-cuda13-artifact.Dockerfile" \
+            "${GITHUB_WORKSPACE}/src"
+
+      - name: Upload
+        uses: actions/upload-artifact@v6
+        with:
+          name: llama-bin-debian-trixie-cuda13-arm64
+          path: artifacts-cuda/llama-${{ inputs.release_tag }}-bin-debian-trixie-cuda13-arm64.tar.gz
+
+      - name: Clean Docker state
+        if: always()
+        run: |
+          docker buildx prune -af || true
+          docker system prune -af --volumes || true
+
+  release:
+    name: Release
+    runs-on: ubuntu-24.04
+    needs:
+      - macos-arm64
+      - debian-vulkan-arm64
+      - debian-cuda13-arm64
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Verify release artifacts
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          expected=(
+            "llama-${RELEASE_TAG}-bin-macos-arm64.tar.gz"
+            "llama-${RELEASE_TAG}-bin-debian-trixie-vulkan-arm64.tar.gz"
+            "llama-${RELEASE_TAG}-bin-debian-trixie-cuda13-arm64.tar.gz"
+          )
+          for artifact in "${expected[@]}"; do
+            test -s "release/${artifact}"
+          done
+          for artifact in "${expected[@]}"; do
+            tar -tzf "release/${artifact}" | grep -Fx "llama-${RELEASE_TAG}/rpc-server"
+            tar -tzf "release/${artifact}" | grep -Fx "llama-${RELEASE_TAG}/llama-server"
+            tar -tzf "release/${artifact}" | grep -Fx "llama-${RELEASE_TAG}/llama-cli"
+          done
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: ${{ inputs.release_name }}
+          files: release/*
+          draft: false
+          prerelease: ${{ inputs.prerelease }}
+          body: |
+            Source: `${{ inputs.source_repo }}`
+            Source ref: `${{ inputs.source_ref }}`
+
+            Artifacts:
+            - macOS ARM64 Metal
+            - Debian Trixie ARM64 Vulkan
+            - Debian Trixie ARM64 CUDA 13
+
+            Debian artifacts are built in throwaway Debian Trixie ARM64 containers.
+            The CUDA artifact bundles CUDA runtime libraries and NVIDIA license notices.

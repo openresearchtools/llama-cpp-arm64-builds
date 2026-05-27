@@ -1,0 +1,62 @@
+name: Track TurboQuant releases
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "47 3 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  resolve:
+    name: Resolve latest Tom release
+    runs-on: ubuntu-24.04
+    outputs:
+      should_build: ${{ steps.resolve.outputs.should_build }}
+      source_tag: ${{ steps.resolve.outputs.source_tag }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      name: ${{ steps.resolve.outputs.name }}
+
+    steps:
+      - name: Resolve release
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          source_tag="$(gh api repos/TheTom/llama-cpp-turboquant/releases/latest --jq .tag_name)"
+          release_tag="turbo-${source_tag}"
+          expected_assets=(
+            "llama-${release_tag}-bin-macos-arm64.tar.gz"
+            "llama-${release_tag}-bin-debian-trixie-vulkan-arm64.tar.gz"
+            "llama-${release_tag}-bin-debian-trixie-cuda13-arm64.tar.gz"
+          )
+
+          should_build=true
+          if assets="$(gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name' 2>/dev/null)"; then
+            should_build=false
+            for asset in "${expected_assets[@]}"; do
+              if ! grep -Fxq "${asset}" <<< "${assets}"; then
+                should_build=true
+              fi
+            done
+          fi
+
+          echo "should_build=${should_build}" >> "${GITHUB_OUTPUT}"
+          echo "source_tag=${source_tag}" >> "${GITHUB_OUTPUT}"
+          echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
+          echo "name=TurboQuant ${source_tag} ARM64 builds" >> "${GITHUB_OUTPUT}"
+
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.should_build == 'true'
+    uses: ./.github/workflows/build-release-artifacts.yml
+    with:
+      source_repo: TheTom/llama-cpp-turboquant
+      source_ref: ${{ needs.resolve.outputs.source_tag }}
+      release_tag: ${{ needs.resolve.outputs.release_tag }}
+      release_name: ${{ needs.resolve.outputs.name }}
+      prerelease: false
+    permissions:
+      contents: write
