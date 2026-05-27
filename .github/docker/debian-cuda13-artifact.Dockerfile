@@ -29,7 +29,7 @@ RUN apt-get update && \
       libgomp1 \
       xz-utils && \
     mkdir -p /usr/share/keyrings && \
-    curl -fsSL "${CUDA_APT_REPO}/8793F200.pub" | gpg --dearmor -o /usr/share/keyrings/nvidia-cuda-archive-keyring.gpg && \
+    curl --retry 5 --connect-timeout 20 --max-time 120 -fsSL "${CUDA_APT_REPO}/8793F200.pub" | gpg --dearmor -o /usr/share/keyrings/nvidia-cuda-archive-keyring.gpg && \
     printf 'deb [signed-by=/usr/share/keyrings/nvidia-cuda-archive-keyring.gpg] %s /\n' "${CUDA_APT_REPO}" > /etc/apt/sources.list.d/nvidia-cuda.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -130,7 +130,7 @@ RUN test -n "${RELEASE_TAG}" && \
       'See CUDA-EULA.txt when present, the Debian package copyright files in this directory, and:' \
       'https://docs.nvidia.com/cuda/eula/' \
       > "${pkg}/licenses/nvidia/README.txt" && \
-    curl -fsSL https://docs.nvidia.com/cuda/eula/index.html -o "${pkg}/licenses/nvidia/CUDA-EULA.html" || true && \
+    curl --retry 3 --connect-timeout 20 --max-time 120 -fsSL https://docs.nvidia.com/cuda/eula/index.html -o "${pkg}/licenses/nvidia/CUDA-EULA.html" || true && \
     LD_LIBRARY_PATH="${pkg}:${LD_LIBRARY_PATH:-}" sh -c '\
       set -eu; \
       missing="$(mktemp)"; \

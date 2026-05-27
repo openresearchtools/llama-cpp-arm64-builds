@@ -124,6 +124,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           docker buildx build \
+            --progress plain \
             --platform linux/arm64 \
             --target artifact \
             --build-arg "RELEASE_TAG=${RELEASE_TAG}" \
@@ -180,6 +181,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           docker buildx build \
+            --progress plain \
             --platform linux/arm64 \
             --target artifact \
             --build-arg "RELEASE_TAG=${RELEASE_TAG}" \
