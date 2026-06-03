@@ -30,10 +30,10 @@ including `rpc-server`.
 
 ## Workflows
 
-- `Track llama.cpp releases`: runs monthly and builds the latest upstream
+- `Track llama.cpp releases`: runs daily and builds the latest upstream
   `ggml-org/llama.cpp` release if this repository does not already have a
   release for that tag.
-- `Track TurboQuant releases`: runs monthly and builds the latest
+- `Track TurboQuant releases`: runs daily and builds the latest
   `TheTom/llama-cpp-turboquant` release if this repository does not already
   have the corresponding `turbo-<tag>` release.
 - `Build release artifacts`: reusable and manually runnable workflow for a
