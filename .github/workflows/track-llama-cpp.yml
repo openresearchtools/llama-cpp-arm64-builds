@@ -29,6 +29,8 @@ jobs:
             "llama-${latest}-bin-macos-arm64.tar.gz"
             "llama-${latest}-bin-debian-trixie-vulkan-arm64.tar.gz"
             "llama-${latest}-bin-debian-trixie-cuda13-arm64.tar.gz"
+            "llama-${latest}-bin-ubuntu-vulkan-x64.tar.gz"
+            "llama-${latest}-bin-ubuntu-cuda13-x64.tar.gz"
           )
 
           should_build=true
@@ -43,7 +45,7 @@ jobs:
 
           echo "should_build=${should_build}" >> "${GITHUB_OUTPUT}"
           echo "tag=${latest}" >> "${GITHUB_OUTPUT}"
-          echo "name=llama.cpp ${latest} ARM64 builds" >> "${GITHUB_OUTPUT}"
+          echo "name=llama.cpp ${latest} ARM64 and x64 builds" >> "${GITHUB_OUTPUT}"
 
   build:
     needs: resolve

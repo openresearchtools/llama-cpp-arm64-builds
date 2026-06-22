@@ -1,6 +1,6 @@
 # llama-cpp-arm64-builds
 
-Release automation for ARM64 llama.cpp builds.
+Release automation for ARM64 and x64 llama.cpp builds.
 
 This repository does not vendor llama.cpp or TurboQuant source. Its GitHub
 Actions workflows check out source from:
@@ -13,16 +13,19 @@ It then builds release tarballs for:
 - macOS ARM64 Metal
 - Debian Trixie ARM64 Vulkan
 - Debian Trixie ARM64 CUDA 13
+- Ubuntu x64 Vulkan
+- Ubuntu x64 CUDA 13
 
-The Debian artifacts are built inside throwaway Debian Trixie ARM64 containers.
-They follow the upstream llama.cpp Linux release shape: `build/bin` is archived
-after adding the upstream `LICENSE`. The tarballs keep all built tools,
-`rpc-server`, and CPU backend variants produced by the build.
+The Linux artifacts are built inside throwaway Debian Trixie ARM64 and Ubuntu
+24.04 x64 containers. They follow the upstream llama.cpp Linux release shape:
+`build/bin` is archived after adding the upstream `LICENSE`. The tarballs keep
+all built tools, `rpc-server`, and CPU backend variants produced by the build.
 
-The CUDA build uses NVIDIA's Debian 13 SBSA CUDA 13.2 packages at build time, but
-does not bundle NVIDIA CUDA runtime libraries or driver libraries. CUDA runtime
-libraries such as `libcudart`, `libcublas`, `libcublasLt`, and the NVIDIA driver
-library `libcuda.so` must come from the target machine.
+The CUDA builds use NVIDIA's Debian 13 SBSA and Ubuntu 24.04 x86_64 CUDA 13.2
+packages at build time, but do not bundle NVIDIA CUDA runtime libraries or
+driver libraries. CUDA runtime libraries such as `libcudart`, `libcublas`,
+`libcublasLt`, and the NVIDIA driver library `libcuda.so` must come from the
+target machine.
 
 Release tarballs follow the upstream llama.cpp layout: a single
 `llama-<tag>/` directory containing the built binaries and shared libraries,

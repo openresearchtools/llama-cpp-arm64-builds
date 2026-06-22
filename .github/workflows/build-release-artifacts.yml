@@ -201,6 +201,109 @@ jobs:
           docker buildx prune -af || true
           docker system prune -af --volumes || true
 
+  ubuntu-vulkan-x64:
+    name: Ubuntu x64 Vulkan
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out workflow repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.source_repo }}
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 1
+          path: src
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd
+
+      - name: Build artifact in Ubuntu container
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          docker buildx build \
+            --progress plain \
+            --platform linux/amd64 \
+            --target artifact \
+            --build-arg "RELEASE_TAG=${RELEASE_TAG}" \
+            --output "type=local,dest=${GITHUB_WORKSPACE}/artifacts-ubuntu-vulkan-x64" \
+            -f "${GITHUB_WORKSPACE}/.github/docker/ubuntu-vulkan-x64-artifact.Dockerfile" \
+            "${GITHUB_WORKSPACE}/src"
+
+      - name: Upload
+        uses: actions/upload-artifact@v6
+        with:
+          name: llama-bin-ubuntu-vulkan-x64
+          path: artifacts-ubuntu-vulkan-x64/llama-${{ inputs.release_tag }}-bin-ubuntu-vulkan-x64.tar.gz
+
+      - name: Clean Docker state
+        if: always()
+        run: |
+          docker buildx prune -af || true
+          docker system prune -af --volumes || true
+
+  ubuntu-cuda13-x64:
+    name: Ubuntu x64 CUDA 13
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out workflow repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.source_repo }}
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 1
+          path: src
+
+      - name: Free disk space
+        uses: ggml-org/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd
+
+      - name: Build artifact in Ubuntu container
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          docker buildx build \
+            --progress plain \
+            --platform linux/amd64 \
+            --target artifact \
+            --build-arg "RELEASE_TAG=${RELEASE_TAG}" \
+            --output "type=local,dest=${GITHUB_WORKSPACE}/artifacts-ubuntu-cuda13-x64" \
+            -f "${GITHUB_WORKSPACE}/.github/docker/ubuntu-cuda13-x64-artifact.Dockerfile" \
+            "${GITHUB_WORKSPACE}/src"
+
+      - name: Upload
+        uses: actions/upload-artifact@v6
+        with:
+          name: llama-bin-ubuntu-cuda13-x64
+          path: artifacts-ubuntu-cuda13-x64/llama-${{ inputs.release_tag }}-bin-ubuntu-cuda13-x64.tar.gz
+
+      - name: Clean Docker state
+        if: always()
+        run: |
+          docker buildx prune -af || true
+          docker system prune -af --volumes || true
+
   release:
     name: Release
     runs-on: ubuntu-24.04
@@ -208,6 +311,8 @@ jobs:
       - macos-arm64
       - debian-vulkan-arm64
       - debian-cuda13-arm64
+      - ubuntu-vulkan-x64
+      - ubuntu-cuda13-x64
 
     steps:
       - name: Download artifacts
@@ -225,11 +330,14 @@ jobs:
             "llama-${RELEASE_TAG}-bin-macos-arm64.tar.gz"
             "llama-${RELEASE_TAG}-bin-debian-trixie-vulkan-arm64.tar.gz"
             "llama-${RELEASE_TAG}-bin-debian-trixie-cuda13-arm64.tar.gz"
+            "llama-${RELEASE_TAG}-bin-ubuntu-vulkan-x64.tar.gz"
+            "llama-${RELEASE_TAG}-bin-ubuntu-cuda13-x64.tar.gz"
           )
           for artifact in "${expected[@]}"; do
             test -s "release/${artifact}"
           done
           for artifact in "${expected[@]}"; do
+            tar -tzf "release/${artifact}" | grep -Fx "llama-${RELEASE_TAG}/LICENSE"
             tar -tzf "release/${artifact}" | grep -Fx "llama-${RELEASE_TAG}/rpc-server"
             tar -tzf "release/${artifact}" | grep -Fx "llama-${RELEASE_TAG}/llama-server"
             tar -tzf "release/${artifact}" | grep -Fx "llama-${RELEASE_TAG}/llama-cli"
@@ -251,6 +359,8 @@ jobs:
             - macOS ARM64 Metal
             - Debian Trixie ARM64 Vulkan
             - Debian Trixie ARM64 CUDA 13
+            - Ubuntu x64 Vulkan
+            - Ubuntu x64 CUDA 13
 
-            Debian artifacts are built in throwaway Debian Trixie ARM64 containers.
-            The CUDA artifact is built against CUDA 13.2 and does not bundle NVIDIA runtime or driver libraries.
+            Linux artifacts are built in throwaway Debian Trixie ARM64 and Ubuntu 24.04 x64 containers.
+            CUDA artifacts are built against CUDA 13.2 and do not bundle NVIDIA runtime or driver libraries.

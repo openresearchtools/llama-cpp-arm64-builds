@@ -31,6 +31,8 @@ jobs:
             "llama-${release_tag}-bin-macos-arm64.tar.gz"
             "llama-${release_tag}-bin-debian-trixie-vulkan-arm64.tar.gz"
             "llama-${release_tag}-bin-debian-trixie-cuda13-arm64.tar.gz"
+            "llama-${release_tag}-bin-ubuntu-vulkan-x64.tar.gz"
+            "llama-${release_tag}-bin-ubuntu-cuda13-x64.tar.gz"
           )
 
           should_build=true
@@ -46,7 +48,7 @@ jobs:
           echo "should_build=${should_build}" >> "${GITHUB_OUTPUT}"
           echo "source_tag=${source_tag}" >> "${GITHUB_OUTPUT}"
           echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
-          echo "name=TurboQuant ${source_tag} ARM64 builds" >> "${GITHUB_OUTPUT}"
+          echo "name=TurboQuant ${source_tag} ARM64 and x64 builds" >> "${GITHUB_OUTPUT}"
 
   build:
     needs: resolve
