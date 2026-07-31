@@ -88,6 +88,10 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
+          if [[ ! -x ./build/bin/rpc-server && -x ./build/bin/ggml-rpc-server ]]; then
+            cp ./build/bin/ggml-rpc-server ./build/bin/rpc-server
+          fi
+          test -x ./build/bin/rpc-server
           cp LICENSE ./build/bin/
           tar -czvf "../llama-${RELEASE_TAG}-bin-macos-arm64.tar.gz" \
             -s ",^\.,llama-${RELEASE_TAG}," -C ./build/bin .

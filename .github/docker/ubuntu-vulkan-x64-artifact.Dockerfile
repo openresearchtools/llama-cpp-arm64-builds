@@ -1,3 +1,5 @@
+FROM node:24-bookworm-slim AS node
+
 FROM ubuntu:24.04 AS build
 
 ARG RELEASE_TAG
@@ -5,6 +7,8 @@ ARG RELEASE_TAG
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CC=gcc
 ENV CXX=g++
+
+COPY --from=node /usr/local/ /usr/local/
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -47,6 +51,9 @@ RUN cmake -S . -B build -G Ninja \
 RUN test -n "${RELEASE_TAG}" && \
     mkdir -p /out && \
     cp LICENSE build/bin/LICENSE && \
+    if [ ! -x build/bin/rpc-server ] && [ -x build/bin/ggml-rpc-server ]; then \
+      cp build/bin/ggml-rpc-server build/bin/rpc-server; \
+    fi && \
     test -x build/bin/rpc-server && \
     test -x build/bin/llama-server && \
     test -x build/bin/llama-cli && \
